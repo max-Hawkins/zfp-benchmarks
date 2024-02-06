@@ -1,3 +1,6 @@
+#include "cuda.h"
+#include <cuda_runtime.h>
+#include <iostream>
 #include <time.h>
 #include <zfp.h>
 #include "zfp/array.h"
@@ -205,15 +208,60 @@ int main(int argc, char **argv)
             printf("Number of OpenMP Threads: %d\n", actual_num_omp_threads);
         }
 
-        for (int i = 0; i < num_trials; i++)
-        {
+
+    for(int y=0; y < halo_y; y++){
+        for(int x=0; x < halo_x; x++){
+            array[y*halo_x+x] = const_val;
+            array_after[y*halo_x+x] = 0.0;
+            // cout << array[y*halo_x+x] << ", ";
+        }
+        // cout << endl;
+    }
+
+    // Copy vectors from host memory to device memory
+    cudaMemcpy(d_before, array, raw_data_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_after, array_after, raw_data_size, cudaMemcpyHostToDevice);
+
+    // initialize metadata for the 3D array a[nz][ny][nx]
+    zfp_field* field = zfp_field_2d(d_before, type, halo_x, halo_y); // array metadata
+
+    // initialize metadata for a compressed stream
+    zfp_stream* zfp = zfp_stream_open(NULL);                  // compressed stream and parameters
+    // zfp_stream_set_accuracy(zfp, tolerance);                  // set tolerance for fixed-accuracy mode
+    //  zfp_stream_set_precision(zfp, precision);             // alternative: fixed-precision mode
+     zfp_stream_set_rate(zfp, rate, type, 2, 0);           // alternative: fixed-rate mode
+
+    // allocate buffer for compressed data
+    size_t bufsize = zfp_stream_maximum_size(zfp, field);     // capacity of compressed buffer (conservative)
+    void* buffer;
+    cudaMalloc(&buffer, bufsize);
+
+    // associate bit stream with allocated buffer
+    bitstream* stream = stream_open(buffer, bufsize);         // bit stream to compress to
+    zfp_stream_set_bit_stream(zfp, stream);                   // associate with compressed stream
+    zfp_stream_rewind(zfp);                                   // rewind stream to beginning
+
+    size_t compressed_size;
+    float compression_ratio;
+    float compression_throughput, decompression_throughput;
+
+    total_compress_time = 0;
+    total_decompress_time = 0;
+    size_t decompressed_size;
+
+    // Check that execution mode is properly set
+    if (zfp_stream_set_execution(zfp, zfp_exec_cuda)) {
+        // printf("ZFP Execution Policy: %d\n", zfp->exec.policy);
+
+        for(int i=0; i<num_trials+num_warmup; i++){
             // compress array
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
             compressed_size = zfp_compress(zfp, field);
+            cudaDeviceSynchronize();
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 
             // Ignore printing/data collection during warmup
-            if(i>=num_warmup && compressed_size != 0){
+            if(i>=num_warmup){
                 total_compress_time += diff(start,end);
                 compression_ratio = raw_data_size / (float)compressed_size;
                 compression_throughput = raw_data_size / (float)diff(start,end);
@@ -229,11 +277,12 @@ int main(int argc, char **argv)
             // Decompress
             zfp_stream_rewind(zfp);
 
-            zfp_field *field_decompress = zfp_field_2d(array_after, type, halo_x, halo_y); // array metadata
-            bufsize = zfp_stream_maximum_size(zfp, field_decompress);                    // capacity of compressed buffer (conservative)
+            zfp_field* field_decompress = zfp_field_2d(d_after, type, halo_x, halo_y); // array metadata
+            // bufsize_s = zfp_stream_maximum_size(zfp, field_decompress);     // capacity of compressed buffer (conservative)
 
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
             decompressed_size = zfp_decompress(zfp, field_decompress);
+            cudaDeviceSynchronize();
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 
             // Ignore printing/data collection during warmup
