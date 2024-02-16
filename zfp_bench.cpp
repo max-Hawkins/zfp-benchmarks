@@ -29,9 +29,9 @@ int main(int argc, char **argv)
     int num_omp_threads = 8;
     int comp_mode = -1;
     float tolerance = 1;
-    float rate = 16;
-    uint precision = 1;
-    int ndims = 2;
+    double rate = 16;
+    int precision = 1;
+    unsigned int ndims = 2;
     int halo_x = 4;
     int halo_y = 4;
     size_t size = sizeof(double) * halo_x * halo_y;
@@ -65,17 +65,15 @@ int main(int argc, char **argv)
         if (arg.rfind("--threads=", 0) == 0) {
             num_omp_threads = std::stoi(arg.substr(10));
         }
-
         if (arg.rfind("--tolerance=", 0) == 0) {
             tolerance = std::stof(arg.substr(12));
         }
         if (arg.rfind("--rate=", 0) == 0) {
-            rate = std::stof(arg.substr(7));
+            rate = std::stod(arg.substr(7));
         }
         if (arg.rfind("--precision=", 0) == 0) {
             precision = std::stoi(arg.substr(12));
         }
-
 
         if (arg.rfind("--mode=", 0) == 0) {
             if(strcmp(arg.substr(7).c_str(), "ACC")==0){
@@ -137,15 +135,15 @@ int main(int argc, char **argv)
     zfp_stream *zfp = zfp_stream_open(NULL); // compressed stream and parameters
     switch(comp_mode){
         case zfp_mode_fixed_accuracy:
-            printf("Using Fixed-Accuracy Mode\n");
+            printf("Using Fixed-Accuracy Mode\nTolerance: %f\n", tolerance);
             zfp_stream_set_accuracy(zfp, tolerance);
             break;
         case zfp_mode_fixed_precision:
-            printf("Using Fixed-Precision Mode\n");
+            printf("Using Fixed-Precision Mode\nPrecision: %u\n", precision);
             zfp_stream_set_precision(zfp, precision);
             break;
         case zfp_mode_fixed_rate:
-            printf("Using Fixed-Rate Mode\n");
+            printf("Using Fixed-Rate Mode\nRate: %f\n", rate);
             zfp_stream_set_rate(zfp, rate, type, ndims, 0);
             break;
         case zfp_mode_reversible:
@@ -170,8 +168,6 @@ int main(int argc, char **argv)
     total_compress_time = 0;
     total_decompress_time = 0;
     size_t decompressed_size;
-
-    printf("ZFP Execution Policy: %d\n", zfp->exec.policy);
 
     if (zfp_stream_set_execution(zfp, exec_policy)) {
         // Check execution policy was set correctly
