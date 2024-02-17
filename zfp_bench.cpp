@@ -181,7 +181,7 @@ int main(int argc, char **argv)
 
     size_t compressed_size;
     float compression_ratio;
-    float compression_throughput, decompression_throughput;
+    double compression_throughput, decompression_throughput;
 
     total_compress_time = 0;
     total_decompress_time = 0;
@@ -213,7 +213,7 @@ int main(int argc, char **argv)
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 
             // Ignore printing/data collection during warmup
-            if(i>=num_warmup){
+            if(i>=num_warmup && compressed_size != 0){
                 total_compress_time += diff(start,end);
                 compression_ratio = raw_data_size / (float)compressed_size;
                 compression_throughput = raw_data_size / (float)diff(start,end);
@@ -253,12 +253,20 @@ int main(int argc, char **argv)
     compression_throughput = raw_data_size / avg_compression_time;
     decompression_throughput = raw_data_size / avg_decompression_time;
 
-    printf("\n\nAverage Compression time: %.0f ns\nAverage Compression Throughput: %f GB/s\n",
+    if(compressed_size == 0){
+        printf("Compression failed. No data collected on decompression.\n");
+        avg_compression_time = -1;
+        compression_throughput = -1;
+    }else{
+        printf("\n\nAverage Compression time: %.0f ns\nAverage Compression Throughput: %f GB/s\n",
             avg_compression_time,
             compression_throughput);
+    }
 
     if(decompressed_size == 0){
         printf("\nDecompression failed. No data collected on decompression.\n");
+        avg_decompression_time = -1;
+        decompression_throughput = -1;
     }else{
         printf("\nAverage Decompression time: %.0f ns\nAverage Decompression Throughput: %f GB/s\n",
             avg_decompression_time,
