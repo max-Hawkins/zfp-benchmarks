@@ -285,7 +285,7 @@ int main(int argc, char **argv)
 
     // Output Header Line
     if(!data_file_preexists){
-        char header[300] = "Host,Mode,Exec,Tolerance,Precision,Rate,AvgCompTime,AvgCompThroughput,AvgDecompTime,AvgDecompThroughput";
+        char header[300] = "Host,Mode,Exec,OpenMPThreads,Tolerance,Precision,Rate,NX,NY,AvgCompTime,AvgCompThroughput,AvgDecompTime,AvgDecompThroughput";
         fprintf(data_file, "%s\n", header);
     }
 
@@ -293,7 +293,7 @@ int main(int argc, char **argv)
     hostname[1023] = '\0';
     gethostname(hostname, 1023);
     fprintf(data_file,
-            "%s,%d,%d,%u,%f,%u,%f,%f,%f,%f,%f\n",
+            "%s,%d,%d,%u,%f,%u,%f,%d,%d,%f,%f,%f,%f\n",
             hostname,
             comp_mode,
             exec_policy,
@@ -301,6 +301,8 @@ int main(int argc, char **argv)
             tolerance,
             precision,
             rate,
+            halo_x,
+            halo_y,
             avg_compression_time,
             compression_throughput,
             avg_decompression_time,
