@@ -25,6 +25,24 @@ int main(int argc, char **argv)
 {
     std::cout << "---ZFP Benchmarking---\n";
 
+    // Output file
+    FILE *data_file;
+    bool data_file_preexists = 0;
+    char data_filename[50] = "zfp_bench.csv";
+
+    if (access(data_filename, F_OK) == 0) {
+        data_file_preexists = 1;
+        data_file = fopen(data_filename, "a");
+    } else {
+        data_file_preexists = 0;
+        data_file = fopen(data_filename, "w");
+    }
+
+    if (data_file == NULL) {
+        printf("Error opening file!");
+        return 1;
+    }
+
     zfp_exec_policy exec_policy = zfp_exec_serial;
     int num_omp_threads = 8;
     int comp_mode = -1;
@@ -256,6 +274,34 @@ int main(int argc, char **argv)
     //     }
     //     cout << endl;
     // }
+
+    // Output Header Line
+    if(!data_file_preexists){
+        char header[300] = "Host,Mode,Exec,Tolerance,Precision,Rate,AvgCompTime,AvgCompThroughput,AvgDecompTime,AvgDecompThroughput";
+        fprintf(data_file, "%s\n", header);
+    }
+
+    char hostname[1024];
+    hostname[1023] = '\0';
+    gethostname(hostname, 1023);
+    fprintf(data_file,
+            "%s,%d,%d,%u,%f,%u,%f,%f,%f,%f,%f\n",
+            hostname,
+            comp_mode,
+            exec_policy,
+            num_omp_threads,
+            tolerance,
+            precision,
+            rate,
+            avg_compression_time,
+            compression_throughput,
+            avg_decompression_time,
+            decompression_throughput);
+    fclose(data_file);
+
+    printf("CSV data has been successfully written to the file.\n\n\n");
+
+
 
     return 0;
 }
