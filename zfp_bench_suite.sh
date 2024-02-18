@@ -8,8 +8,9 @@ cuda_enabled = 0
 
 num_benchmarks = 0
 
-for nx in $(seq 1 1); do
-    for ny in $(seq 1 1); do
+for nx in $(seq 4 4); do
+    for ny in $(seq 1 12); do
+        ny=$((2**ny))
         for mode in "RATE" "PREC" "ACC" "REV"; do
 
             # Create ZFP compression mode flag parameter arrays
