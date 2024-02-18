@@ -20,7 +20,7 @@ data = CSV.File(data_filename)
 
 # ╔═╡ cac4587f-eece-434b-81db-12e8deffd11a
 test = @from i in data begin
-	@where i.Mode == 2 && i.Exec == 0
+	@where i.Mode == 2 && i.Exec == 0 && i.Rate == 1
 	@select {i.NX, i.NY, i.Rate, i.AvgCompTime, i.AvgCompThroughput, i.AvgDecompTime, i.AvgDecompThroughput}
 	@collect DataFrame
 end
@@ -29,7 +29,10 @@ end
 test[!,:NY]
 
 # ╔═╡ 3516a01e-711d-41d3-aef2-7d9a3377879b
-plot(test[!, :NY], test[!,:AvgCompThroughput])
+begin
+	plot(test[!, :NY], test[!,:AvgCompThroughput], label="Comp TP")
+	plot!(test[!, :NY], test[!,:AvgDecompThroughput], label="Decomp TP")
+end
 
 # ╔═╡ 7dc5c6c9-70c5-466b-9187-ac1cbb7cf30c
 plot(test[!, :NY], test[!,:AvgDecompThroughput])
