@@ -15,6 +15,9 @@ end
 # ╔═╡ 03a080a3-9859-451f-8959-25766d863cc3
 data_filename = "../zfp_bench.csv"
 
+# ╔═╡ 74dbd670-9d57-43da-8c23-0f19b5aca0b3
+run(`ls ..`)
+
 # ╔═╡ e8f2f503-986c-4de6-b084-feb49676660c
 data = CSV.File(data_filename)
 
@@ -51,6 +54,48 @@ end
 plot(openmp_data[!, :OpenMPThreads], openmp_data[!,:AvgCompThroughput], label=unique(openmp_data[!,:Rate]))
 
 # ╔═╡ 126587b6-7960-478b-8439-9b2e29604b43
+gpu_data_1 = @from i in data begin
+	@where i.Mode == 2 && i.Exec == 2 && i.Rate == 1 && i.NX !== 4
+	@select {i.NX, i.NY, i.Rate, i.AvgCompTime, i.AvgCompThroughput, i.AvgDecompTime, i.AvgDecompThroughput}
+	@collect DataFrame
+end
+
+# ╔═╡ 1783c7db-9328-46c3-8f27-6e85853c70b4
+gpu_data_32 = @from i in data begin
+	@where i.Mode == 2 && i.Exec == 2  && i.NX!==4 && i.Rate == 32
+	@select {i.NX, i.NY, i.Rate, i.AvgCompTime, i.AvgCompThroughput, i.AvgDecompTime, i.AvgDecompThroughput}
+	@collect DataFrame
+end
+
+# ╔═╡ e75e5436-09fc-4551-b15e-24edad488bd4
+begin
+	plot(log10.(gpu_data[!, :NY]), log10.(gpu_data[!,:AvgCompThroughput]), label="Compr TP")
+	plot!(log10.(gpu_data[!, :NY]), log10.(gpu_data[!,:AvgDecompThroughput]), label="Decompr TP", xlabel = "Uncompressed Data Size in One Dim (Log 10 Num. elements)", ylabel="Throughput (Log 10 GB/s)", title="A100 ZFP Throughput (Explicitly Managed Memory)")
+end
+
+# ╔═╡ 2c99760a-48f1-48a3-bbed-2a60fdfc018d
+begin
+	plot(log10.(gpu_data_1[!, :NY]), log10.(gpu_data_1[!,:AvgCompThroughput]), label="Compr TP - Rate: 1")
+	plot!(log10.(gpu_data_1[!, :NY]), log10.(gpu_data_1[!,:AvgDecompThroughput]), label="Decompr TP - Rate: 1", xlabel = "Uncompressed Data Size in One Dim (Log 10 Num. elements)", ylabel="Throughput (Log 10 GB/s)", title="A100 ZFP Throughput (Explicitly Managed Memory)")
+
+	plot!(log10.(gpu_data_32[!, :NY]), log10.(gpu_data_32[!,:AvgCompThroughput]), label="Compr TP - Rate: 32")
+	plot!(log10.(gpu_data_32[!, :NY]), log10.(gpu_data_32[!,:AvgDecompThroughput]), label="Decompr TP - Rate: 32", xlabel = "Uncompressed Data Size in One Dim (Log 10 Num. elements)", ylabel="Throughput (Log 10 GB/s)", title="A100 ZFP Throughput (ZFP Managed Memory)")
+end
+
+# ╔═╡ 0fa26e64-7667-4539-86e1-4db2a047e239
+begin
+	local _gpu_data = @from i in data begin
+			@where i.Mode == 2 && i.Exec == 2 && i.NY == 131072
+			@select {i.NX, i.NY, i.Rate, i.AvgCompTime, i.AvgCompThroughput, i.AvgDecompTime, i.AvgDecompThroughput}
+			@collect DataFrame
+	end
+	
+	plot(_gpu_data[!, :Rate], _gpu_data[!,:AvgCompThroughput], label="Compr TP")
+	
+end
+
+# ╔═╡ 089eb3c9-e0c6-43d4-9aaa-c4397cbf0e69
+Base.format_bytes((2^12*4)^2)
 
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -1256,6 +1301,7 @@ version = "1.4.1+1"
 # ╔═╡ Cell order:
 # ╠═828f9a16-cde8-11ee-2564-99f5f77e7237
 # ╠═03a080a3-9859-451f-8959-25766d863cc3
+# ╠═74dbd670-9d57-43da-8c23-0f19b5aca0b3
 # ╠═e8f2f503-986c-4de6-b084-feb49676660c
 # ╠═cac4587f-eece-434b-81db-12e8deffd11a
 # ╠═605f2081-995c-4ec7-b6bf-755fb7dbe028
@@ -1265,5 +1311,10 @@ version = "1.4.1+1"
 # ╠═fa7c6353-04d5-401d-8d75-ae4ee40dbc0b
 # ╠═ebbd955d-6c56-46ce-85ce-c01be87852c1
 # ╠═126587b6-7960-478b-8439-9b2e29604b43
+# ╠═1783c7db-9328-46c3-8f27-6e85853c70b4
+# ╠═e75e5436-09fc-4551-b15e-24edad488bd4
+# ╠═2c99760a-48f1-48a3-bbed-2a60fdfc018d
+# ╠═0fa26e64-7667-4539-86e1-4db2a047e239
+# ╠═089eb3c9-e0c6-43d4-9aaa-c4397cbf0e69
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
