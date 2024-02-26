@@ -52,7 +52,7 @@ int main(int argc, char **argv)
     unsigned int ndims = 2;
     int halo_x = 4;
     int halo_y = 4;
-    size_t size = sizeof(double) * halo_x * halo_y;
+    size_t size = sizeof(float) * halo_x * halo_y;
 
     zfp_type type = zfp_type_float;
 
@@ -132,14 +132,14 @@ int main(int argc, char **argv)
     timespec start, end;
     int num_trials = 10;
     int num_warmup = 3; // How many compression/decompression cycles to execute before starting timing
-    size_t raw_data_size = halo_x * halo_y * sizeof(double);
+    size_t raw_data_size = halo_x * halo_y * sizeof(float);
     long long total_compress_time, total_decompress_time;
 
     for (int y = 0; y < halo_y; y++)
     {
         for (int x = 0; x < halo_x; x++)
         {
-            array[y * halo_x + x] = y * halo_x + x;
+            array[y * halo_x + x] = rand() / (double) RAND_MAX;
             array_after[y * halo_x + x] = 0.0;
             // myfile << array[y*halo_x+x] << ", ";
         }
