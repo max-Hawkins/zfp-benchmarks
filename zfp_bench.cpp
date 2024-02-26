@@ -241,9 +241,9 @@ int main(int argc, char **argv)
                 total_decompress_time += diff(start,end);
                 decompression_throughput = raw_data_size / (double)diff(start,end);
 
-                printf("Decompression Time: %d\nDecompression Throughput: %f GB/s\n",
-                        diff(start,end),
-                        decompression_throughput);
+                // printf("Decompression Time: %d\nDecompression Throughput: %f GB/s\n",
+                //         diff(start,end),
+                //         decompression_throughput);
             }
         }
     }
