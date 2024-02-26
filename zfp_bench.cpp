@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 
     zfp_type type = zfp_type_float;
 
-// Parse command line args
+    // Parse command line args
    for (int i = 0; i < argc; ++i){
         std::string arg = argv[i];
         // Help Message
@@ -128,9 +128,22 @@ int main(int argc, char **argv)
         // }
     }
 
+    float *array, *array_after;
+    float *d_before, *d_after;
 
-    float *array = new float[halo_x * halo_y];
-    float *array_after = new float[halo_x * halo_y];
+    cudaError_t status = cudaMallocHost((void**)&array, size);
+    if (status != cudaSuccess){
+        printf("Error allocating pinned host memory\n");
+        std::cout << "Error is: " << cudaGetErrorString(status) << std::endl;
+    }
+    status = cudaMallocHost((void**)&array_after, size);
+    if (status != cudaSuccess)
+        printf("Error allocating pinned host memory\n");
+
+    // Allocate vectors in device memory
+    cudaMalloc(&d_before, size);
+    cudaMalloc(&d_after, size);
+
 
     timespec start, end;
     int num_trials = 10;
@@ -209,49 +222,45 @@ int main(int argc, char **argv)
         }
 
 
-    for(int y=0; y < halo_y; y++){
-        for(int x=0; x < halo_x; x++){
-            array[y*halo_x+x] = const_val;
-            array_after[y*halo_x+x] = 0.0;
-            // cout << array[y*halo_x+x] << ", ";
+        for(int y=0; y < halo_y; y++){
+            for(int x=0; x < halo_x; x++){
+                array[y*halo_x+x] = 0.1;
+                array_after[y*halo_x+x] = 0.0;
+                // cout << array[y*halo_x+x] << ", ";
+            }
+            // cout << endl;
         }
-        // cout << endl;
-    }
 
-    // Copy vectors from host memory to device memory
-    cudaMemcpy(d_before, array, raw_data_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_after, array_after, raw_data_size, cudaMemcpyHostToDevice);
+        // Copy vectors from host memory to device memory
+        cudaMemcpy(d_before, array, raw_data_size, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_after, array_after, raw_data_size, cudaMemcpyHostToDevice);
 
-    // initialize metadata for the 3D array a[nz][ny][nx]
-    zfp_field* field = zfp_field_2d(d_before, type, halo_x, halo_y); // array metadata
+        // initialize metadata for the 3D array a[nz][ny][nx]
+        zfp_field* field = zfp_field_2d(d_before, type, halo_x, halo_y); // array metadata
 
-    // initialize metadata for a compressed stream
-    zfp_stream* zfp = zfp_stream_open(NULL);                  // compressed stream and parameters
-    // zfp_stream_set_accuracy(zfp, tolerance);                  // set tolerance for fixed-accuracy mode
-    //  zfp_stream_set_precision(zfp, precision);             // alternative: fixed-precision mode
-     zfp_stream_set_rate(zfp, rate, type, 2, 0);           // alternative: fixed-rate mode
+        // initialize metadata for a compressed stream
+        zfp_stream* zfp = zfp_stream_open(NULL);                  // compressed stream and parameters
+        // zfp_stream_set_accuracy(zfp, tolerance);                  // set tolerance for fixed-accuracy mode
+        //  zfp_stream_set_precision(zfp, precision);             // alternative: fixed-precision mode
+        zfp_stream_set_rate(zfp, rate, type, 2, 0);           // alternative: fixed-rate mode
 
-    // allocate buffer for compressed data
-    size_t bufsize = zfp_stream_maximum_size(zfp, field);     // capacity of compressed buffer (conservative)
-    void* buffer;
-    cudaMalloc(&buffer, bufsize);
+        // allocate buffer for compressed data
+        size_t bufsize = zfp_stream_maximum_size(zfp, field);     // capacity of compressed buffer (conservative)
+        void* buffer;
+        cudaMalloc(&buffer, bufsize);
 
-    // associate bit stream with allocated buffer
-    bitstream* stream = stream_open(buffer, bufsize);         // bit stream to compress to
-    zfp_stream_set_bit_stream(zfp, stream);                   // associate with compressed stream
-    zfp_stream_rewind(zfp);                                   // rewind stream to beginning
+        // associate bit stream with allocated buffer
+        bitstream* stream = stream_open(buffer, bufsize);         // bit stream to compress to
+        zfp_stream_set_bit_stream(zfp, stream);                   // associate with compressed stream
+        zfp_stream_rewind(zfp);                                   // rewind stream to beginning
 
-    size_t compressed_size;
-    float compression_ratio;
-    float compression_throughput, decompression_throughput;
+        size_t compressed_size;
+        float compression_ratio;
+        float compression_throughput, decompression_throughput;
 
-    total_compress_time = 0;
-    total_decompress_time = 0;
-    size_t decompressed_size;
-
-    // Check that execution mode is properly set
-    if (zfp_stream_set_execution(zfp, zfp_exec_cuda)) {
-        // printf("ZFP Execution Policy: %d\n", zfp->exec.policy);
+        total_compress_time = 0;
+        total_decompress_time = 0;
+        size_t decompressed_size;
 
         for(int i=0; i<num_trials+num_warmup; i++){
             // compress array
@@ -363,4 +372,4 @@ int main(int argc, char **argv)
 
 
     return 0;
-}
+    }
