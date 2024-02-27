@@ -150,20 +150,6 @@ int main(int argc, char **argv)
     size_t raw_data_size = halo_x * halo_y * sizeof(double);
     long long total_compress_time, total_decompress_time;
 
-    for (int y = 0; y < halo_y; y++)
-    {
-        for (int x = 0; x < halo_x; x++)
-        {
-            array[y * halo_x + x] = rand() / (double) RAND_MAX;
-            array_after[y * halo_x + x] = 0.0;
-            // myfile << array[y*halo_x+x] << ", ";
-        }
-        // myfile << endl;
-    }
-
-    // initialize metadata for the 3D array a[nz][ny][nx]
-    zfp_field *field = zfp_field_2d(array, type, halo_x, halo_y); // array metadata
-
     // initialize metadata for a compressed stream
     zfp_stream *zfp = zfp_stream_open(NULL); // compressed stream and parameters
     switch(comp_mode){
@@ -184,15 +170,6 @@ int main(int argc, char **argv)
             zfp_stream_set_reversible(zfp);
             break;
     }
-
-    // allocate buffer for compressed data
-    size_t bufsize = zfp_stream_maximum_size(zfp, field); // capacity of compressed buffer (conservative)
-    void *buffer = malloc(bufsize);                       // storage for compressed stream
-
-    // associate bit stream with allocated buffer
-    bitstream *stream = stream_open(buffer, bufsize); // bit stream to compress to
-    zfp_stream_set_bit_stream(zfp, stream);           // associate with compressed stream
-    zfp_stream_rewind(zfp);                           // rewind stream to beginning
 
     size_t compressed_size;
     float compression_ratio;
@@ -223,7 +200,7 @@ int main(int argc, char **argv)
 
         for(int y=0; y < halo_y; y++){
             for(int x=0; x < halo_x; x++){
-                array[y*halo_x+x] = 0.1;
+                array[y*halo_x+x] = rand() / (double) RAND_MAX; //0.1;
                 array_after[y*halo_x+x] = 0.0;
                 // cout << array[y*halo_x+x] << ", ";
             }
@@ -237,12 +214,6 @@ int main(int argc, char **argv)
         // initialize metadata for the 3D array a[nz][ny][nx]
         zfp_field* field = zfp_field_2d(d_before, type, halo_x, halo_y); // array metadata
 
-        // initialize metadata for a compressed stream
-        zfp_stream* zfp = zfp_stream_open(NULL);                  // compressed stream and parameters
-        // zfp_stream_set_accuracy(zfp, tolerance);                  // set tolerance for fixed-accuracy mode
-        //  zfp_stream_set_precision(zfp, precision);             // alternative: fixed-precision mode
-        zfp_stream_set_rate(zfp, rate, type, 2, 0);           // alternative: fixed-rate mode
-
         // allocate buffer for compressed data
         size_t bufsize = zfp_stream_maximum_size(zfp, field);     // capacity of compressed buffer (conservative)
         void* buffer;
@@ -251,25 +222,23 @@ int main(int argc, char **argv)
         // associate bit stream with allocated buffer
         bitstream* stream = stream_open(buffer, bufsize);         // bit stream to compress to
         zfp_stream_set_bit_stream(zfp, stream);                   // associate with compressed stream
-        zfp_stream_rewind(zfp);                                   // rewind stream to beginning
+        // zfp_field_free(field); // TEST
+        // zfp_stream_rewind(zfp);                                   // rewind stream to beginning
 
-        size_t compressed_size;
-        float compression_ratio;
-        float compression_throughput, decompression_throughput;
 
         total_compress_time = 0;
         total_decompress_time = 0;
-        size_t decompressed_size;
 
         for(int i=0; i<num_trials+num_warmup; i++){
             // compress array
+            zfp_stream_rewind(zfp);                                   // rewind stream to beginning
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
             compressed_size = zfp_compress(zfp, field);
             cudaDeviceSynchronize();
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 
             // Ignore printing/data collection during warmup
-            if(i>=num_warmup){
+            if(i>=num_warmup && compressed_size > 0){
                 total_compress_time += diff(start,end);
                 compression_ratio = raw_data_size / (float)compressed_size;
                 compression_throughput = raw_data_size / (float)diff(start,end);
@@ -285,18 +254,21 @@ int main(int argc, char **argv)
             // Decompress
             zfp_stream_rewind(zfp);
 
-            zfp_field* field_decompress = zfp_field_2d(d_after, type, halo_x, halo_y); // array metadata
+            // zfp_field* field_decompress = zfp_field_2d(d_after, type, halo_x, halo_y); // array metadata
             // bufsize_s = zfp_stream_maximum_size(zfp, field_decompress);     // capacity of compressed buffer (conservative)
+            // void* buffer_decompress;
+            // cudaMalloc(&buffer_decompress, bufsize_s);
+            cudaDeviceSynchronize();
 
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-            decompressed_size = zfp_decompress(zfp, field_decompress);
+            decompressed_size = zfp_decompress(zfp, field);
             cudaDeviceSynchronize();
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 
             // Ignore printing/data collection during warmup
             if(i>=num_warmup && decompressed_size > 0){
                 total_decompress_time += diff(start,end);
-                decompression_throughput = raw_data_size / (double)diff(start,end);
+                decompression_throughput = raw_data_size / (float)diff(start,end);
 
                 // printf("Decompression Time: %d\nDecompression Throughput: %f GB/s\n",
                 //         diff(start,end),
