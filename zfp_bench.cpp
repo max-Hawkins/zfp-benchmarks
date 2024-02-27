@@ -55,9 +55,8 @@ int main(int argc, char **argv)
     unsigned int ndims = 2;
     int halo_x = 4;
     int halo_y = 4;
-    size_t size = sizeof(float) * halo_x * halo_y;
 
-    zfp_type type = zfp_type_float;
+    zfp_type type = zfp_type_double;
 
     // Parse command line args
    for (int i = 0; i < argc; ++i){
@@ -128,8 +127,9 @@ int main(int argc, char **argv)
         // }
     }
 
-    float *array, *array_after;
-    float *d_before, *d_after;
+    size_t size = sizeof(double) * halo_x * halo_y;
+    double *array, *array_after;
+    double *d_before, *d_after;
 
     cudaError_t status = cudaMallocHost((void**)&array, size);
     if (status != cudaSuccess){
@@ -144,11 +144,10 @@ int main(int argc, char **argv)
     cudaMalloc(&d_before, size);
     cudaMalloc(&d_after, size);
 
-
     timespec start, end;
     int num_trials = 10;
     int num_warmup = 3; // How many compression/decompression cycles to execute before starting timing
-    size_t raw_data_size = halo_x * halo_y * sizeof(float);
+    size_t raw_data_size = halo_x * halo_y * sizeof(double);
     long long total_compress_time, total_decompress_time;
 
     for (int y = 0; y < halo_y; y++)
